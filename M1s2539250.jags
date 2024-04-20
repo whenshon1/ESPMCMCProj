@@ -1,0 +1,51 @@
+#This is the first model, which simulates expected effect from one set of mu
+#values for all of the experimental runs combined (with a different M value,
+#representing the effect at 0 dose [index 1], for each experimental run).
+#To do this, we first generate x from Normal priors, then transform it into the
+#mu parameter deterministically, then multiply mu and M for the given experiment
+#and dose index to determine an expected effect. The model is described in more
+#detail at the beginning of the R file.
+
+model {
+  #Set the initial distributions of x[1], x[2], and m[1]
+  x[1] ~ dnorm(0,0.01)
+  x[2] ~ dnorm(x[1],tau)
+  m[1] <- 0
+
+  #Iterate through the rest of the dose indices to find the distributions for
+  #the rest of the x's
+  for (i in 3:I) {
+    x[i] ~ dnorm((2*x[i-1] - x[i-2]), tau)
+  }
+
+  #Iterate through the dose indices to find the distributions for m[2:9], which
+  #is found deterministically from x
+  for(i in 1:(I-1)){
+    m[i+1] <- m[i] - exp(x[i])
+  }
+
+  #Iterate through all the dose indices to compute mu deterministically from m
+  for(i in 1:I){
+    mu[i] <- exp(m[i])
+  }
+
+  #Iterate through the experimental values
+  for(j in 1:J){
+
+    #Introduce the prior for M[j]
+    M[j] ~ dunif(0,4000)
+
+    #Iterate through the dose indices to compute the effect posterior
+    #Create the fx matrix to store effect means, useful for finding the 95%
+    #credible interval
+    for(i in 1:I){
+      fx[i,j] <- M[j]*mu[i]
+      eff[i,j] ~ dnorm(fx[i,j], tau0)
+    }
+
+  }
+
+  #Generate priors for the normal precisions
+  tau0 ~ dgamma(4,0.04)
+  tau ~ dgamma(4,0.04)
+}

@@ -1,0 +1,57 @@
+#This is the second model, which simulates expected effect using a separate set
+#of mu values for each of the experiments. Other than the separate sequences of
+#mu values for each experiment (and therefore separate sequences for x and m as
+#well), the model is identical to the first one. The model is described in more
+#detail at the beginning of the R file.
+
+model {
+  #Find the priors for x and m for each experiment for the first dose index
+  for(j in 1:J){
+    x[1,j] ~ dnorm(0,0.01)
+    m[1,j] <- 0
+  }
+
+  #Introduce the prior for each experiment for x at the 2nd dose index
+  for(j in 1:J){
+    x[2,j] ~ dnorm(x[1,j],tau)
+  }
+
+  #Iterate through the rest of the dose indices to introduce the rest of the x
+  #distributions for each experiment
+  for(i in 3:I){
+    for(j in 1:J){
+      x[i,j] ~ dnorm((2*x[i-1,j] - x[i-2,j]), tau)
+    }
+  }
+
+  #Iterate through the dose indices 2-9 to set the m distributions for each
+  #experimental run
+  for(i in 1:(I-1)){
+    for(j in 1:J){
+      m[i+1,j] <- m[i,j] - exp(x[i,j])
+    }
+  }
+
+  #Iterate through each dose index to find the mu distribution for each
+  #experiment
+  for(i in 1:I){
+    for(j in 1:J){
+      mu[i,j] <- exp(m[i,j])
+    }
+  }
+
+  #Iterate through the dose indices and experiments to find the M distribution
+  #for each experiment and then the effect distribution for each experiment and
+  #dose index
+  for(j in 1:J){
+    M[j] ~ dunif(0,4000)
+    for(i in 1:I){
+      fx[i,j] = M[j]*mu[i,j]
+      eff[i,j] ~ dnorm(fx[i,j], tau0)
+    }
+  }
+
+  #Introduce the priors for the normal precisions
+  tau0 ~ dgamma(4,0.04)
+  tau ~ dgamma(4,0.04)
+}
